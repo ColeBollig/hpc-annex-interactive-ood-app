@@ -29,9 +29,9 @@ script:
     <%- mail_types = [] %>
     <%- mail_types << "BEGIN" if email_on_started == "1" %>
     <%- mail_types << "END" if email_on_ended == "1" %>
-    <%- if mail_types.any? && !user_email.blank? %>
+    <%- if mail_types.any? && !user_email.strip.blank? %>
     - "--mail-type=<%= mail_types.join(",") %>"
-    - "--mail-user=<%= user_email %>"
+    - "--mail-user=<%= user_email.strip %>"
     <%- end %>
 
   # Set script debugging log for stdout/stderr to one file
