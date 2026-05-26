@@ -1,0 +1,9 @@
+---
+name: HTC Annex
+category: Interactive Apps
+role: batch_connect
+description: |
+  Automated launcher for an HTCondor Annex
+icon: logo.svg
+new_window: false
+

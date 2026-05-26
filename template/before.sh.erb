@@ -1,0 +1,19 @@
+#!/bin/bash
+
+SOURCE=<%= context.annex_tarball_path %>
+
+if [ ! -f "$SOURCE" ]; then
+    echo "ERROR: Specified source tarball $SOURCE does not exist"
+    exit 1
+fi
+
+echo "Unpacking $SOURCE"
+tar -xvf $SOURCE
+
+echo ""
+echo "Displaying working directory"
+ls -l
+
+echo ""
+echo "Executing annex setup script"
+bash annex-setup.sh

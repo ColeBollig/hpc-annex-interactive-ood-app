@@ -1,0 +1,39 @@
+---
+batch_connect:
+  template: "basic"
+
+script:
+  # Max job runtime
+  wall_time: "<%= bc_num_hours.blank? ? 3600 : bc_num_hours.to_i * 3600 %>"
+
+  # Set accounting information if provided
+  <%- unless bc_account.blank? %>
+  accounting_id: "<%= bc_account %>"
+  <%- end %>
+
+  # Route job to the selected partition
+  queue_name: "<%= auto_queues %>"
+
+  # Set native slurm options
+  native:
+    # CPU cores and memory advertised to HTCondor jobs
+    - "--cpus-per-task=<%= num_cores.blank? ? 1 : num_cores.to_i %>"
+    - "--mem=<%= memory_gb.blank? ? 4 : memory_gb.to_i %>G"
+
+    # Set desired number of GPUs to provision to pilot
+    <%- if num_gpus.to_i > 0 %>
+    - "--gres=gpu:<%= num_gpus.to_i %>"
+    <%- end %>
+
+    # Setup email for job start/end if specified
+    <%- mail_types = [] %>
+    <%- mail_types << "BEGIN" if email_on_started == "1" %>
+    <%- mail_types << "END" if email_on_ended == "1" %>
+    <%- if mail_types.any? && !user_email.blank? %>
+    - "--mail-type=<%= mail_types.join(",") %>"
+    - "--mail-user=<%= user_email %>"
+    <%- end %>
+
+  # Set script debugging log for stdout/stderr to one file
+  output_path: htc-annex-app.debug
+  error_path: htc-annex-app.debug

@@ -1,0 +1,92 @@
+---
+cluster: "*"
+
+form:
+  - cluster
+  - annex_tarball_path
+  - auto_queues
+  - num_cores
+  - memory_gb
+  - num_gpus
+  - bc_num_hours
+  - bc_account
+  - email_on_started
+  - email_on_ended
+  - user_email
+
+
+attributes:
+  # Slurm account to charge for resource usage
+  bc_account:
+    label: "Account"
+    help: "Slurm account to charge for this job. Leave blank to use your default account."
+
+  # Desired number of cores per node to make available via pilot
+  num_cores:
+    widget: "number_field"
+    label: "CPUs per Node"
+    help: "Number of CPU cores per node to advertise to HTCondor jobs."
+    value: 1
+    min: 1
+    max: 128
+    step: 1
+
+  # Desired amount of memory (GB) per node to make available via pilot
+  memory_gb:
+    widget: "number_field"
+    label: "Memory per Node (GB)"
+    help: "Amount of memory per node (in GB) to advertise to HTCondor jobs."
+    value: 4
+    min: 1
+    max: 512
+    step: 1
+
+  # Desired number of GPUs per node to make available via pilot
+  num_gpus:
+    widget: "number_field"
+    label: "GPUs per Node"
+    help: "Number of GPUs per node to advertise to HTCondor jobs. Set to 0 for no GPUs."
+    value: 0
+    min: 0
+    max: 8
+    step: 1
+
+  # Maximum pilot job runtime (in hours)
+  bc_num_hours:
+    label: "Max Wall Time (hours)"
+    help: "Maximum time the annex will run. HTCondor EPs will begin shutting down 5 minutes before this limit."
+    value: 1
+    min: 1
+    max: 72
+    step: 1
+
+  # Email user when job begins
+  email_on_started:
+    widget: "check_box"
+    label: "Email when job starts"
+    help: "Send an email notification when the job begins running."
+    value: 0
+
+  # Email user when job is finished
+  email_on_ended:
+    widget: "check_box"
+    label: "Email when job ends"
+    help: "Send an email notification when the job finishes or is cancelled."
+    value: 0
+
+  # Email address to send notifications
+  user_email:
+    widget: "email_field"
+    label: "Email Address"
+    help: "Email address for job notifications. Required if either email option is checked."
+    placeholder: "you@example.com"
+
+  # Path to the annex-setup.tar produced by `htcondor annex create`
+  annex_tarball_path:
+    display: true
+    required: true
+    widget: "path_selector"
+    label: "Annex source tarball"
+    help: "Path to the tarball produced by `htcondor annex create` on the access point (e.g. `~/my-annex.tar`)."
+    directory: "<%= CurrentUser.home %>"
+    popup_title: "Select annex source tarball"
