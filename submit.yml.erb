@@ -27,8 +27,8 @@ script:
 
     # Setup email for job start/end if specified
     <%- mail_types = [] %>
-    <%- mail_types << "BEGIN" if email_on_started == "1" %>
-    <%- mail_types << "END" if email_on_ended == "1" %>
+    <%- mail_types << "BEGIN" if email_on_started.to_s == "1" %>
+    <%- mail_types << "END" if email_on_ended.to_s == "1" %>
     <%- if mail_types.any? && !user_email.strip.blank? %>
     - "--mail-type=<%= mail_types.join(",") %>"
     - "--mail-user=<%= user_email.strip %>"
