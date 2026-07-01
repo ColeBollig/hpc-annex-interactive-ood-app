@@ -2,6 +2,8 @@
 
 ## In Progress / Next Up
 
+- [ ] Figure out annex time issues
+- [ ] Figure out email/start/stop issues
 - [ ] Test full loop: place job on AP, create annex, move tarball to HPC, launch via OOD, confirm job exits cleanly
 - [ ] Get Ian to handle the user-facing documentation and onboarding
 - [ ] Demo to Miron
