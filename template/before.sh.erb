@@ -8,11 +8,11 @@ if [ ! -f "$SOURCE" ]; then
 fi
 
 echo "Unpacking $SOURCE"
-tar -xvf $SOURCE
+tar -xvf $SOURCE --strip-components=1
 
 echo ""
 echo "Displaying working directory"
-ls -l
+ls -alh
 
 echo ""
 echo "Executing annex setup script"
