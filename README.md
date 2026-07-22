@@ -91,11 +91,16 @@ HTC_ANNEX_DEFAULT_MEMORY_GB=32
 HTC_ANNEX_MIN_NUM_GPUS=0
 HTC_ANNEX_MAX_NUM_GPUS=4
 HTC_ANNEX_DEFAULT_NUM_GPUS=0
+
+# Max wall time (hours) — built-in range 1-72, built-in default 1
+HTC_ANNEX_MIN_NUM_HOURS=2
+HTC_ANNEX_MAX_NUM_HOURS=48
+HTC_ANNEX_DEFAULT_NUM_HOURS=12
 ```
 
 Any unset or non-numeric value falls back to its built-in counterpart. Each resolved `{min, max, default}` triple is validated as a unit:
 
-- `min` can't go below the resource's hard floor (`1` for cores/memory, `0` for GPUs — "0 GPUs" is the documented way to request a CPU-only node, so unlike cores/memory it's a valid minimum, not just a fallback).
+- `min` can't go below the resource's hard floor (`1` for cores/memory/wall time, `0` for GPUs — "0 GPUs" is the documented way to request a CPU-only node, so unlike the others it's a valid minimum, not just a fallback).
 - `max` must be `>= min`.
 - If either of the above is violated, **both** `min` and `max` revert to their built-in values — a broken pair can't be sensibly half-repaired, so rather than guess which bound was wrong, both are discarded together.
 - `default` is then clamped into whatever `[min, max]` resulted (admin-supplied or reverted-to-built-in) — a default that's merely out of range gets corrected rather than discarded, since the surrounding `min`/`max` are still trustworthy in that case.

@@ -6,12 +6,13 @@
 module AnnexDefaults
   # name: the HTC_ANNEX_{MIN,MAX,DEFAULT}_<name> env var suffix
   # floor: the resource's hard lower bound (0 for GPUs, since "0 GPUs" is the
-  #   documented way to request a CPU-only node; 1 for cores/memory, since a
-  #   job can't sensibly request zero of either).
+  #   documented way to request a CPU-only node; 1 for cores/memory/runtime,
+  #   since a job can't sensibly request zero of any of those).
   RESOURCES = {
     num_cores: { env: "NUM_CORES", builtin_min: 1, builtin_max: 128, builtin_default: 1, floor: 1 },
     memory_gb: { env: "MEMORY_GB", builtin_min: 1, builtin_max: 512, builtin_default: 4, floor: 1 },
     num_gpus:  { env: "NUM_GPUS",  builtin_min: 0, builtin_max: 8,   builtin_default: 0, floor: 0 },
+    num_hours: { env: "NUM_HOURS", builtin_min: 1, builtin_max: 72,  builtin_default: 1, floor: 1 },
   }.freeze
 
   # user_email/bc_account are interpolated into double-quoted YAML strings in

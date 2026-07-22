@@ -29,7 +29,8 @@ batch_connect:
   # (both real, supported customization points -- see USER-STEPS.md) before
   # it's ever applied, so a submit-time tarball read can't be trusted as
   # authoritative. That value is queried live instead, straight from the
-  # running pilot's own HTCondor install -- see template/script.sh.
+  # running pilot's own HTCondor install -- see lib/annex_pilot.rb, called
+  # directly from info.html.erb.
   begin
     record = AnnexRecord.read(annex_tarball_path)
     unless record["VERSION"].to_s.strip.empty?
@@ -43,7 +44,7 @@ batch_connect:
 
 script:
   # Max job runtime
-  wall_time: "<%= bc_num_hours.blank? ? 3600 : bc_num_hours.to_i * 3600 %>"
+  wall_time: "<%= (bc_num_hours.blank? ? resources[:num_hours][:default] : bc_num_hours.to_i) * 3600 %>"
 
   # Set accounting information if provided
   <%- if !bc_account.blank? && bc_account.strip =~ AnnexDefaults::ACCOUNT_RE %>

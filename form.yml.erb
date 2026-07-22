@@ -61,9 +61,9 @@ attributes:
   bc_num_hours:
     label: "Max Wall Time (hours)"
     help: "Maximum time the annex will run. HTCondor EPs will begin shutting down 5 minutes before this limit."
-    value: 1
-    min: 1
-    max: 72
+    value: <%= resources[:num_hours][:default] %>
+    min: <%= resources[:num_hours][:min] %>
+    max: <%= resources[:num_hours][:max] %>
     step: 1
 
   # Email user on job start and end. Always kept in the form list (as
