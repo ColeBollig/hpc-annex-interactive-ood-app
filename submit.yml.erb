@@ -23,29 +23,16 @@ batch_connect:
   # step has no --delete, so this file survives it. Best-effort only --
   # nothing here should ever block job submission.
   #
-  # Also writes `app_dir` (this app's own directory, i.e. __dir__ here) into
-  # the same file. __dir__ is confirmed reliable in THIS binding
-  # (BatchConnect::App#render_erb_file), but NOT inside info.html.erb's own
-  # rendering path (BatchConnect::Session#render_info_view) -- confirmed by
-  # a real production LoadError there (`__dir__` resolved to "."). So
-  # info.html.erb reads `app_dir` back from here rather than computing its
-  # own __dir__, to `require` lib/annex_pilot.rb reliably.
-  #
-  # The idle-shutdown timeout (STARTD_NOCLAIM_SHUTDOWN) is NOT surfaced here.
-  # Unlike VERSION, its value in annex.record can be silently overridden by
-  # the user's own ~/.condor/annex_config or ~/.condor/annex_pilot_config
-  # (both real, supported customization points -- see USER-STEPS.md) before
-  # it's ever applied, so a submit-time tarball read can't be trusted as
-  # authoritative. That value is queried live instead, straight from the
-  # running pilot's own HTCondor install -- see lib/annex_pilot.rb, called
-  # directly from info.html.erb.
+  # The idle-shutdown timeout (STARTD_NOCLAIM_SHUTDOWN) is intentionally NOT
+  # surfaced dynamically here or anywhere else -- see README.md's Session
+  # Card Info section for why a live/simulated value was attempted and
+  # abandoned. The card just shows a static, generic reminder instead.
   begin
     record = AnnexRecord.read(annex_tarball_path)
-    info = { app_dir: __dir__ }
-    info[:condor_version] = record["VERSION"] unless record["VERSION"].to_s.strip.empty?
-
-    FileUtils.mkdir_p(staged_root)
-    File.write(File.join(staged_root, "annex_info.json"), JSON.generate(info))
+    unless record["VERSION"].to_s.strip.empty?
+      FileUtils.mkdir_p(staged_root)
+      File.write(File.join(staged_root, "annex_info.json"), JSON.generate(condor_version: record["VERSION"]))
+    end
   rescue StandardError
     # Session-card info is a nice-to-have -- never fail submission over it.
   end
