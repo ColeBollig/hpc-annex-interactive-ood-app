@@ -13,24 +13,28 @@ batch_connect:
   # rather than a stale hardcoded value.
   resources = AnnexDefaults.resolve_all
 
-  # Surface the HTCondor version and idle-shutdown timeout on the session
-  # card (see info.html.erb) by reading them straight out of the user's
-  # selected tarball's annex.record. `staged_root` is injected into this
-  # binding by OOD (undocumented for submit.yml.erb specifically, but
-  # confirmed in ood/apps/dashboard's BatchConnect::App#submit_opts) and
+  # Surface the HTCondor version on the session card (see info.html.erb) by
+  # reading it straight out of the user's selected tarball's annex.record --
+  # this value is used verbatim to pick which HTCondor build annex-setup.sh
+  # downloads, so a static read is authoritative. `staged_root` is injected
+  # into this binding by OOD (undocumented for submit.yml.erb specifically,
+  # but confirmed in ood/apps/dashboard's BatchConnect::App#submit_opts) and
   # doesn't exist yet at this point, hence mkdir_p; the later rsync stage
   # step has no --delete, so this file survives it. Best-effort only --
   # nothing here should ever block job submission.
+  #
+  # The idle-shutdown timeout (STARTD_NOCLAIM_SHUTDOWN) is NOT surfaced here.
+  # Unlike VERSION, its value in annex.record can be silently overridden by
+  # the user's own ~/.condor/annex_config or ~/.condor/annex_pilot_config
+  # (both real, supported customization points -- see USER-STEPS.md) before
+  # it's ever applied, so a submit-time tarball read can't be trusted as
+  # authoritative. That value is queried live instead, straight from the
+  # running pilot's own HTCondor install -- see template/script.sh.
   begin
     record = AnnexRecord.read(annex_tarball_path)
-    shutdown_seconds = record["STARTD_NOCLAIM_SHUTDOWN"].to_s
-    info = {}
-    info[:condor_version] = record["VERSION"] unless record["VERSION"].to_s.strip.empty?
-    info[:startd_noclaim_shutdown_seconds] = shutdown_seconds.to_i if shutdown_seconds.match?(/\A\d+\z/)
-
-    unless info.empty?
+    unless record["VERSION"].to_s.strip.empty?
       FileUtils.mkdir_p(staged_root)
-      File.write(File.join(staged_root, "annex_info.json"), JSON.generate(info))
+      File.write(File.join(staged_root, "annex_info.json"), JSON.generate(condor_version: record["VERSION"]))
     end
   rescue StandardError
     # Session-card info is a nice-to-have -- never fail submission over it.
