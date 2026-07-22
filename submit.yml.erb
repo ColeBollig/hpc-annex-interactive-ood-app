@@ -23,6 +23,14 @@ batch_connect:
   # step has no --delete, so this file survives it. Best-effort only --
   # nothing here should ever block job submission.
   #
+  # Also writes `app_dir` (this app's own directory, i.e. __dir__ here) into
+  # the same file. __dir__ is confirmed reliable in THIS binding
+  # (BatchConnect::App#render_erb_file), but NOT inside info.html.erb's own
+  # rendering path (BatchConnect::Session#render_info_view) -- confirmed by
+  # a real production LoadError there (`__dir__` resolved to "."). So
+  # info.html.erb reads `app_dir` back from here rather than computing its
+  # own __dir__, to `require` lib/annex_pilot.rb reliably.
+  #
   # The idle-shutdown timeout (STARTD_NOCLAIM_SHUTDOWN) is NOT surfaced here.
   # Unlike VERSION, its value in annex.record can be silently overridden by
   # the user's own ~/.condor/annex_config or ~/.condor/annex_pilot_config
@@ -33,10 +41,11 @@ batch_connect:
   # directly from info.html.erb.
   begin
     record = AnnexRecord.read(annex_tarball_path)
-    unless record["VERSION"].to_s.strip.empty?
-      FileUtils.mkdir_p(staged_root)
-      File.write(File.join(staged_root, "annex_info.json"), JSON.generate(condor_version: record["VERSION"]))
-    end
+    info = { app_dir: __dir__ }
+    info[:condor_version] = record["VERSION"] unless record["VERSION"].to_s.strip.empty?
+
+    FileUtils.mkdir_p(staged_root)
+    File.write(File.join(staged_root, "annex_info.json"), JSON.generate(info))
   rescue StandardError
     # Session-card info is a nice-to-have -- never fail submission over it.
   end

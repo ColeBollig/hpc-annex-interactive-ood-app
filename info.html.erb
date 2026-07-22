@@ -10,6 +10,14 @@
   # yet, never did, or isn't executable from the OOD web server (e.g. a
   # different OS/arch than the compute node it was downloaded on).
   #
+  # NOTE: __dir__ does NOT reliably resolve to this app's directory in this
+  # file specifically (confirmed by a real production LoadError --
+  # BatchConnect::Session#render_info_view renders info.html.erb
+  # differently than BatchConnect::App#render_erb_file renders
+  # form.yml.erb/submit.yml.erb, where __dir__ is fine). So `app_dir` is
+  # read from annex_info.json (written by submit.yml.erb, where __dir__ IS
+  # reliable) instead of computed here.
+  #
   # `staged_root` here is an undocumented-for-info.html.erb but
   # confirmed-working local variable OOD injects into this binding --
   # community-verified (osc.github.io/ood-documentation is silent on it for
@@ -18,7 +26,6 @@
   # guaranteed API and could break on a future OOD version -- this card
   # section should just quietly not render rather than break the whole card.
   require "json"
-  require File.join(__dir__, "lib", "annex_pilot.rb")
 
   info = begin
     path = File.join(staged_root, "annex_info.json")
@@ -27,10 +34,22 @@
     {}
   end
 
+  # Isolated in its own rescue (separate from `info` above) so a failure to
+  # locate/require/run AnnexPilot never takes down the condor_version
+  # display too -- each piece of card info degrades independently.
+  #
+  # Rescues StandardError AND ScriptError (LoadError's actual superclass --
+  # NOT a StandardError, so `rescue StandardError` alone silently fails to
+  # catch a bad `require`, exactly the crash this whole indirection exists
+  # to prevent; caught the hard way via testing before this ever shipped).
   shutdown_seconds = begin
-    raw = AnnexPilot.condor_config_val(staged_root, "STARTD_NOCLAIM_SHUTDOWN")
-    raw&.match?(/\A\d+\z/) ? raw.to_i : nil
-  rescue StandardError
+    app_dir = info["app_dir"]
+    if app_dir && !app_dir.to_s.empty?
+      require File.join(app_dir, "lib", "annex_pilot.rb")
+      raw = AnnexPilot.condor_config_val(staged_root, "STARTD_NOCLAIM_SHUTDOWN")
+      raw&.match?(/\A\d+\z/) ? raw.to_i : nil
+    end
+  rescue StandardError, ScriptError
     nil
   end
 %>
