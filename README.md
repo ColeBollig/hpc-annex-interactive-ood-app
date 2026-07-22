@@ -67,6 +67,8 @@ The tarball produced by `htcondor annex create` on the access point (see [USER-S
 
 All settings below are read from `/etc/ood/config/apps/dashboard/env` (managed by the OOD admin, not part of this repo). Interactive apps like this one are all rendered by the single Dashboard Passenger process, so this file — not a per-app one — is where their environment variables live; it's shared across every interactive app on the instance, not exclusive to HTC Annex.
 
+**This is also true for a personal dev/sandbox copy of this app** (`~/ondemand/dev/<name>/`) — there is no per-app `.env`/`env` file for a batch-connect app like this one, even in dev mode. (Job Composer/`myjobs` supports a dev-directory `.env` because it's a separate standalone Rails engine with its own boot logic; a custom batch-connect app's `form.yml.erb`/`submit.yml.erb` are rendered inside the same Dashboard process regardless of whether the app you're viewing is `dev`, `usr`, or `sys` — only `/etc/ood/config/apps/dashboard/env` affects its `ENV`.) So testing a dev sandbox copy of this app with custom settings still means editing the same root-owned file used in production, then restarting the Dashboard app (**Help → Restart Web Server** from the dashboard) — there's no way around needing admin access for this, even just to test.
+
 ### Default resource requests
 
 Each resource field's minimum, maximum, and default are all independently overridable, all logic lives in `lib/annex_defaults.rb`:
@@ -112,6 +114,15 @@ HTC_ANNEX_EMAIL_ENABLED=false
 ```
 
 Leave it unset to use the `scontrol`-based autodetection.
+
+**`user_email` only hides/shows with the checkbox if `bc_dynamic_js` is enabled instance-wide.** When both fields are shown, `user_email` is meant to appear only once `send_email` is checked (via a `data-hide-user-email-when-un-checked` directive — see [Dynamic Form Widgets](https://osc.github.io/ood-documentation/latest/how-tos/app-development/interactive/dynamic-form-widgets.html)). That directive does nothing at all unless the OOD instance has `bc_dynamic_js: true` set — it defaults to `false`, and without it `user_email` just stays visible regardless of the checkbox. This is a separate instance-wide setting from anything in `/etc/ood/config/apps/dashboard/env` above; it goes in a YAML file under `/etc/ood/config/ondemand.d/` (any filename), e.g.:
+
+```yaml
+# /etc/ood/config/ondemand.d/dynamic_forms.yml
+bc_dynamic_js: true
+```
+
+Same restart requirement as everything else on this page (**Help → Restart Web Server**).
 
 ## Session Card Info
 
