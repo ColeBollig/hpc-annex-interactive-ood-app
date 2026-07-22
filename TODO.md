@@ -2,19 +2,11 @@
 
 ## In Progress / Next Up
 
-- [ ] Figure out annex time issues
-- [ ] Email/start/stop notifications not arriving — confirmed cluster-side, not an app bug:
-      `submit.yml.erb` correctly generates `--mail-type=BEGIN,END --mail-user=...` (verified in a
-      failed run's `job_script_options.json`), and a plain `sbatch --mail-type=BEGIN,END
-      --mail-user=... --wrap="sleep 10"` submitted directly on spark-login (bypassing the OOD app
-      entirely) also produced no email. `scontrol show config` shows `MailProg=/bin/mail`, but the
-      Slurm controller likely has no working outbound mail relay. Needs CHTC admin follow-up
-      (check maillog on the node running slurmctld) — nothing left to fix in this repo.
-- [ ] Test full loop: place job on AP, create annex, move tarball to HPC, launch via OOD, confirm job exits cleanly
+- [ ] Set email override (disable) on OOD Spark App
 - [ ] Get Ian to handle the user-facing documentation and onboarding
 - [ ] Demo to Miron
-- [ ] Package app into a git repo
 - [ ] Share interactive app with users
+- [ ] Move repo into HTCondor project space
 
 ## Open Questions
 
@@ -28,3 +20,13 @@
 - [x] Apply all form inputs to `submit.yml.erb` (CPUs, memory, GPUs, wall time, account, email)
 - [x] Make partition selection dynamic via `auto_queues` (no hardcoded partition list)
 - [x] Make cluster selection dynamic via `cluster: "*"` (works on any OOD-configured Slurm system)
+- [x] Collapse `email_on_started`/`email_on_ended` into a single `send_email` checkbox (sends `--mail-type=BEGIN,END`), hide `user_email` until it's checked, and hide the whole email section unless `scontrol show config` reports a configured `MailProg` — plus an admin override (`HTC_ANNEX_EMAIL_ENABLED` in the app's `env` file, see README.md) for when a configured `MailProg` doesn't mean mail actually works (our case — see the mail relay note above)
+- [x] Let admins override default `num_cores`/`memory_gb`/`num_gpus` per-install via `HTC_ANNEX_DEFAULT_*` env vars (see README.md), falling back to the built-in defaults (1 core, 4GB, 0 GPUs) and clamping to each field's min/max
+- [x] Fix `submit.yml.erb`'s blank-field fallback for `num_cores`/`memory_gb` to reuse the same `HTC_ANNEX_DEFAULT_*` resolution instead of stale hardcoded `1`/`4` literals, so a cleared field doesn't silently ignore the admin's configured default
+- [x] Full bug/consistency sweep: quoted the unquoted `$SOURCE` path in `template/before.sh.erb` (broke on filenames with spaces), added a `timeout` to the `scontrol` autodetect, closed a YAML-injection gap by validating `bc_account`/`user_email` against strict regexes before interpolating them, and made `send_email`/`user_email` always present in form context (as `hidden_field` when unsupported) instead of relying on `defined?` against OOD's context internals
+- [x] Let admins override `min`/`max` (not just the default) per resource via `HTC_ANNEX_MIN_*`/`HTC_ANNEX_MAX_*`, applied directly to the form fields' allowed range; validate the resolved `{min, max, default}` triple as a unit (see README.md); extracted all of this into `lib/annex_defaults.rb`, required by both `form.yml.erb` and `submit.yml.erb`, eliminating the duplicated helper
+- [x] Test full loop: place job on AP, create annex, move tarball to HPC, launch via OOD, confirm job exits cleanly - Tested via personal LVM VM host w/ minicondor to Spark via OOD
+- [x] Package app into a git repo
+- [x] Corrected a wrong path in README.md's Admin Configuration section: interactive apps share the Dashboard's env file (`/etc/ood/config/apps/dashboard/env`), not a per-app-token one — verified against OOD's `customizations.html` docs and a maintainer's discourse reply, since the per-app-token pattern only applies to standalone apps like Shell/Job Composer
+- [x] Add `info.html.erb` session-card warning (idle-shutdown timeout) + detected HTCondor version, read from `annex.record` inside the user's tarball via new `lib/annex_record.rb` (see README.md's Session Card Info section). Verified against a real annex tarball's actual files (`annex.record`, `annex-setup.sh`, `annex-node.sh`) rather than guessing at HTCondor annex tooling internals; confirmed `STARTD_NOCLAIM_SHUTDOWN`/`VERSION` are never modified before being applied to the pilot's own config, so a static tarball read is exactly as accurate as querying the live EP. Relies on an undocumented-but-confirmed-working `staged_root` variable in `submit.yml.erb`/`info.html.erb` — not part of OOD's official API for these two files, so both are wrapped in `rescue` and degrade to just not showing this section if a future OOD version breaks it
+- [x] Figure out annex time issues - STARTD_NOCLAIM_SHUTDOWN causes pilot to exit early (default 5 min): Now add warning to information page

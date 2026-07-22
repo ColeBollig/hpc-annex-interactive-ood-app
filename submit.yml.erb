@@ -2,13 +2,48 @@
 batch_connect:
   template: "basic"
 
+<%
+  require "fileutils"
+  require "json"
+  require File.join(__dir__, "lib", "annex_defaults.rb")
+  require File.join(__dir__, "lib", "annex_record.rb")
+
+  # Mirrors the resolution in form.yml.erb so a blank submission (e.g. user
+  # clears a number field) falls back to the same admin-configured default
+  # rather than a stale hardcoded value.
+  resources = AnnexDefaults.resolve_all
+
+  # Surface the HTCondor version and idle-shutdown timeout on the session
+  # card (see info.html.erb) by reading them straight out of the user's
+  # selected tarball's annex.record. `staged_root` is injected into this
+  # binding by OOD (undocumented for submit.yml.erb specifically, but
+  # confirmed in ood/apps/dashboard's BatchConnect::App#submit_opts) and
+  # doesn't exist yet at this point, hence mkdir_p; the later rsync stage
+  # step has no --delete, so this file survives it. Best-effort only --
+  # nothing here should ever block job submission.
+  begin
+    record = AnnexRecord.read(annex_tarball_path)
+    shutdown_seconds = record["STARTD_NOCLAIM_SHUTDOWN"].to_s
+    info = {}
+    info[:condor_version] = record["VERSION"] unless record["VERSION"].to_s.strip.empty?
+    info[:startd_noclaim_shutdown_seconds] = shutdown_seconds.to_i if shutdown_seconds.match?(/\A\d+\z/)
+
+    unless info.empty?
+      FileUtils.mkdir_p(staged_root)
+      File.write(File.join(staged_root, "annex_info.json"), JSON.generate(info))
+    end
+  rescue StandardError
+    # Session-card info is a nice-to-have -- never fail submission over it.
+  end
+%>
+
 script:
   # Max job runtime
   wall_time: "<%= bc_num_hours.blank? ? 3600 : bc_num_hours.to_i * 3600 %>"
 
   # Set accounting information if provided
-  <%- unless bc_account.blank? %>
-  accounting_id: "<%= bc_account %>"
+  <%- if !bc_account.blank? && bc_account.strip =~ AnnexDefaults::ACCOUNT_RE %>
+  accounting_id: "<%= bc_account.strip %>"
   <%- end %>
 
   # Route job to the selected partition
@@ -17,20 +52,20 @@ script:
   # Set native slurm options
   native:
     # CPU cores and memory advertised to HTCondor jobs
-    - "--cpus-per-task=<%= num_cores.blank? ? 1 : num_cores.to_i %>"
-    - "--mem=<%= memory_gb.blank? ? 4 : memory_gb.to_i %>G"
+    - "--cpus-per-task=<%= num_cores.blank? ? resources[:num_cores][:default] : num_cores.to_i %>"
+    - "--mem=<%= memory_gb.blank? ? resources[:memory_gb][:default] : memory_gb.to_i %>G"
 
     # Set desired number of GPUs to provision to pilot
-    <%- if num_gpus.to_i > 0 %>
-    - "--gres=gpu:<%= num_gpus.to_i %>"
+    <%- gpu_count = num_gpus.blank? ? resources[:num_gpus][:default] : num_gpus.to_i %>
+    <%- if gpu_count > 0 %>
+    - "--gres=gpu:<%= gpu_count %>"
     <%- end %>
 
-    # Setup email for job start/end if specified
-    <%- mail_types = [] %>
-    <%- mail_types << "BEGIN" if email_on_started.to_s == "1" %>
-    <%- mail_types << "END" if email_on_ended.to_s == "1" %>
-    <%- if mail_types.any? && !user_email.strip.blank? %>
-    - "--mail-type=<%= mail_types.join(",") %>"
+    # Setup email for job start/end if specified. send_email/user_email are
+    # always present in context (see form.yml.erb) even when the email
+    # section is hidden as unsupported — in that case send_email is always "0".
+    <%- if send_email.to_s == "1" && !user_email.to_s.strip.blank? && user_email.strip =~ AnnexDefaults::EMAIL_RE %>
+    - "--mail-type=BEGIN,END"
     - "--mail-user=<%= user_email.strip %>"
     <%- end %>
 

@@ -1,6 +1,13 @@
 ---
 cluster: "*"
 
+<%
+  require File.join(__dir__, "lib", "annex_defaults.rb")
+
+  resources = AnnexDefaults.resolve_all
+  email_supported = AnnexDefaults.email_supported?
+%>
+
 form:
   - cluster
   - annex_tarball_path
@@ -10,8 +17,7 @@ form:
   - num_gpus
   - bc_num_hours
   - bc_account
-  - email_on_started
-  - email_on_ended
+  - send_email
   - user_email
 
 
@@ -26,9 +32,9 @@ attributes:
     widget: "number_field"
     label: "CPUs per Node"
     help: "Number of CPU cores per node to advertise to HTCondor jobs."
-    value: 1
-    min: 1
-    max: 128
+    value: <%= resources[:num_cores][:default] %>
+    min: <%= resources[:num_cores][:min] %>
+    max: <%= resources[:num_cores][:max] %>
     step: 1
 
   # Desired amount of memory (GB) per node to make available via pilot
@@ -36,9 +42,9 @@ attributes:
     widget: "number_field"
     label: "Memory per Node (GB)"
     help: "Amount of memory per node (in GB) to advertise to HTCondor jobs."
-    value: 4
-    min: 1
-    max: 512
+    value: <%= resources[:memory_gb][:default] %>
+    min: <%= resources[:memory_gb][:min] %>
+    max: <%= resources[:memory_gb][:max] %>
     step: 1
 
   # Desired number of GPUs per node to make available via pilot
@@ -46,9 +52,9 @@ attributes:
     widget: "number_field"
     label: "GPUs per Node"
     help: "Number of GPUs per node to advertise to HTCondor jobs. Set to 0 for no GPUs."
-    value: 0
-    min: 0
-    max: 8
+    value: <%= resources[:num_gpus][:default] %>
+    min: <%= resources[:num_gpus][:min] %>
+    max: <%= resources[:num_gpus][:max] %>
     step: 1
 
   # Maximum pilot job runtime (in hours)
@@ -60,26 +66,27 @@ attributes:
     max: 72
     step: 1
 
-  # Email user when job begins
-  email_on_started:
-    widget: "check_box"
-    label: "Email when job starts"
-    help: "Send an email notification when the job begins running."
+  # Email user on job start and end. Always kept in the form list (as
+  # hidden_field when unsupported) rather than conditionally omitted, so
+  # submit.yml.erb can always rely on these attributes existing in context
+  # instead of guessing whether OOD's context object safely no-ops on a
+  # reference to an attribute that was never part of the form.
+  send_email:
+    widget: "<%= email_supported ? 'check_box' : 'hidden_field' %>"
+    label: "Email notifications"
+    help: "Send an email notification when the job starts and when it finishes or is cancelled."
     value: 0
-
-  # Email user when job is finished
-  email_on_ended:
-    widget: "check_box"
-    label: "Email when job ends"
-    help: "Send an email notification when the job finishes or is cancelled."
-    value: 0
+    html_options:
+      data:
+        hide-user-email-when-un-checked: true
 
   # Email address to send notifications
   user_email:
-    widget: "text_field"
+    widget: "<%= email_supported ? 'email_field' : 'hidden_field' %>"
     label: "Email Address"
-    help: "Email address for job notifications. Required if either email option is checked."
+    help: "Email address for job notifications."
     placeholder: "you@example.com"
+    value: ""
 
   # Path to the annex-setup.tar produced by `htcondor annex create`
   annex_tarball_path:

@@ -1,0 +1,30 @@
+<%
+  # Reads the file submit.yml.erb writes into staged_root (see that file's
+  # comment for details). `staged_root` here is an undocumented-for-info.html.erb
+  # but confirmed-working local variable OOD injects into this binding --
+  # community-verified (osc.github.io/ood-documentation is silent on it for
+  # this specific file; see https://discourse.openondemand.org/t/customizing-interactive-app-cards-using-erb/2694
+  # for a working example). Wrapped in rescue since it's not an officially
+  # guaranteed API and could break on a future OOD version -- this card
+  # section should just quietly not render rather than break the whole card.
+  require "json"
+
+  info = begin
+    path = File.join(staged_root, "annex_info.json")
+    File.exist?(path) ? JSON.parse(File.read(path)) : {}
+  rescue StandardError
+    {}
+  end
+%>
+<% if info["startd_noclaim_shutdown_seconds"] %>
+  <% seconds = info["startd_noclaim_shutdown_seconds"].to_i %>
+  <% minutes_raw = (seconds / 60.0).round(1) %>
+  <% minutes = minutes_raw == minutes_raw.to_i ? minutes_raw.to_i : minutes_raw %>
+  <div class="alert alert-warning">
+    This job may go away in <%= minutes %> minutes if there's no job pressure
+    (the execute point shuts down after <%= seconds %> seconds unclaimed).
+  </div>
+<% end %>
+<% if info["condor_version"] %>
+  <p>Detected HTCondor version: <strong><%= info["condor_version"] %></strong></p>
+<% end %>
