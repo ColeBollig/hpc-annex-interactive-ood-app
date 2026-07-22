@@ -14,17 +14,15 @@ batch_connect:
   resources = AnnexDefaults.resolve_all
 
   # Surface the HTCondor version and idle-shutdown timeout on the session
-  # card (see info.html.erb) by reading them out of the user's selected
-  # tarball's annex.record, adjusted for any override in their own
-  # ~/.condor/annex_config (see AnnexRecord.effective). `staged_root` is
-  # injected into this binding by OOD (undocumented for submit.yml.erb
-  # specifically, but confirmed in ood/apps/dashboard's
-  # BatchConnect::App#submit_opts) and doesn't exist yet at this point,
-  # hence mkdir_p; the later rsync stage step has no --delete, so this file
-  # survives it. Best-effort only -- nothing here should ever block job
-  # submission.
+  # card (see info.html.erb) by reading them straight out of the user's
+  # selected tarball's annex.record. `staged_root` is injected into this
+  # binding by OOD (undocumented for submit.yml.erb specifically, but
+  # confirmed in ood/apps/dashboard's BatchConnect::App#submit_opts) and
+  # doesn't exist yet at this point, hence mkdir_p; the later rsync stage
+  # step has no --delete, so this file survives it. Best-effort only --
+  # nothing here should ever block job submission.
   begin
-    record = AnnexRecord.effective(annex_tarball_path)
+    record = AnnexRecord.read(annex_tarball_path)
     shutdown_seconds = record["STARTD_NOCLAIM_SHUTDOWN"].to_s
     info = {}
     info[:condor_version] = record["VERSION"] unless record["VERSION"].to_s.strip.empty?
