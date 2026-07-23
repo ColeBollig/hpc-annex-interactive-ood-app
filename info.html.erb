@@ -18,10 +18,31 @@
   rescue StandardError
     {}
   end
+
+  # AnnexPilotConfig resolves the pilot's actual effective
+  # STARTD_NOCLAIM_SHUTDOWN from plain-text config fragments already on
+  # disk -- see lib/annex_pilot_config.rb for the full explanation. Loaded
+  # from staged_root (copied there by submit.yml.erb) rather than
+  # `require`d via __dir__ -- __dir__ doesn't reliably resolve inside this
+  # file's own OOD rendering path (confirmed by a real production LoadError
+  # -- BatchConnect::Session#render_info_view renders info.html.erb
+  # differently than BatchConnect::App#render_erb_file renders
+  # form.yml.erb/submit.yml.erb, where __dir__ is fine).
+  #
+  # Rescues StandardError AND ScriptError (LoadError's actual superclass --
+  # NOT a StandardError, so `rescue StandardError` alone would silently
+  # fail to catch a bad `load`) so a failure here just falls back to the
+  # static warning rather than breaking the whole card.
+  shutdown_warning = begin
+    load(File.join(staged_root, "annex_pilot_config.rb"))
+    AnnexPilotConfig.shutdown_warning(staged_root)
+  rescue StandardError, ScriptError
+    "Pilot may exit early after a set amount of time without any job pressure. See configured <code>STARTD_NOCLAIM_SHUTDOWN</code> value."
+  end
 %>
 <% if info["condor_version"] %>
   <p>Detected HTCondor version: <strong><%= info["condor_version"] %></strong></p>
 <% end %>
 <div class="alert alert-warning">
-  Pilot may exit early after a set amount of time without any job pressure. See configured <code>STARTD_NOCLAIM_SHUTDOWN</code> value.
+  <%= shutdown_warning %>
 </div>

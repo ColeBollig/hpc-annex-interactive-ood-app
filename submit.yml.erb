@@ -23,15 +23,17 @@ batch_connect:
   # step has no --delete, so this file survives it. Best-effort only --
   # nothing here should ever block job submission.
   #
-  # The idle-shutdown timeout (STARTD_NOCLAIM_SHUTDOWN) is intentionally NOT
-  # surfaced dynamically here or anywhere else -- see README.md's Session
-  # Card Info section for why a live/simulated value was attempted and
-  # abandoned. The card just shows a static, generic reminder instead.
+  # Also copies lib/annex_pilot_config.rb into staged_root, so info.html.erb
+  # can `load` it back by a staged_root-based path instead of `require`ing
+  # it via __dir__ -- __dir__ doesn't reliably resolve inside info.html.erb's
+  # own OOD rendering path (confirmed by a real production LoadError; see
+  # git history), but it IS reliable here.
   begin
     record = AnnexRecord.read(annex_tarball_path)
     unless record["VERSION"].to_s.strip.empty?
       FileUtils.mkdir_p(staged_root)
       File.write(File.join(staged_root, "annex_info.json"), JSON.generate(condor_version: record["VERSION"]))
+      FileUtils.cp(File.join(__dir__, "lib", "annex_pilot_config.rb"), File.join(staged_root, "annex_pilot_config.rb"))
     end
   rescue StandardError
     # Session-card info is a nice-to-have -- never fail submission over it.

@@ -44,6 +44,7 @@ The app is not a traditional interactive app — there is no web UI served after
 | `submit.yml.erb` | Maps form values to Slurm job parameters |
 | `lib/annex_defaults.rb` | Shared admin-configuration resolution (resource min/max/default, email support), `require`d by both `form.yml.erb` and `submit.yml.erb` |
 | `lib/annex_record.rb` | Reads `annex.record` out of the user's selected tarball without a full extract; `require`d by `submit.yml.erb` |
+| `lib/annex_pilot_config.rb` | Resolves the pilot's effective `STARTD_NOCLAIM_SHUTDOWN` from static config fragments; copied into `staged_root` by `submit.yml.erb`, `load`ed back by `info.html.erb` (see [Session Card Info](#session-card-info)) |
 | `info.html.erb` | Extra info shown on the session card (see [Session Card Info](#session-card-info)) |
 | `template/before.sh.erb` | Pre-launch: validates and extracts the tarball, runs `annex-setup.sh` |
 | `template/script.sh` | Main job body: runs `bash hpc.slurm` to launch EPs via `srun` |
@@ -97,6 +98,8 @@ HTC_ANNEX_MAX_NUM_HOURS=48
 HTC_ANNEX_DEFAULT_NUM_HOURS=12
 ```
 
+**`HTC_ANNEX_MIN_MEMORY_GB`'s built-in floor (1 GB) is below the pilot's `MEMORY_CHUNK_SIZE` (3072 MB) — see [Known Limitations](#known-limitations) before relying on it.** An admin who wants to rule out that footgun entirely should set `HTC_ANNEX_MIN_MEMORY_GB=4` (or otherwise ensure it can't drop below ~3 GB).
+
 Any unset or non-numeric value falls back to its built-in counterpart. Each resolved `{min, max, default}` triple is validated as a unit:
 
 - `min` can't go below the resource's hard floor (`1` for cores/memory/wall time, `0` for GPUs — "0 GPUs" is the documented way to request a CPU-only node, so unlike the others it's a valid minimum, not just a fallback).
@@ -136,14 +139,19 @@ Same restart requirement as everything else on this page (**Help → Restart Web
 `info.html.erb` shows two pieces of info on the session card in "My Interactive Sessions":
 
 - **HTCondor version** (`VERSION`) — read once at submission time (`submit.yml.erb`, via `lib/annex_record.rb`) straight out of `annex.record` inside the tarball (see [Contents of annex-setup.tar](#contents-of-annex-setuptar)). This value is used verbatim by `annex-setup.sh` to pick which HTCondor build to download, so a static read is authoritative — no need to wait for the job to run.
-- **A static idle-shutdown reminder** — a fixed, generic warning that the pilot may exit early if unclaimed for too long, naming `STARTD_NOCLAIM_SHUTDOWN` rather than showing its actual configured value.
+- **Idle-shutdown warning** — the pilot's actual effective `STARTD_NOCLAIM_SHUTDOWN`, converted to a human-readable duration (e.g. "5 minutes") when it resolves to a plain number, falling back to a generic static reminder otherwise.
 
-Showing the *actual* configured value was attempted and abandoned through a few iterations, each ruled out for a concrete reason:
+Two earlier attempts at showing the actual value were tried and abandoned before landing on the current approach:
 1. A static read of `annex.record`'s own `STARTD_NOCLAIM_SHUTDOWN` — ruled out because `annex-setup.sh` sources the user's own `~/.condor/annex_config` (a shell override) on top of it before ever using it, and `annex-job-setup.sh` separately copies `~/.condor/annex_pilot_config` in as a higher-precedence HTCondor `config.d` file — both real, supported customization points (see `USER-STEPS.md`) that can silently change the effective value.
-2. Simulating that override precedence at submit time — ruled out because it only accounted for one of the two override paths, and enumerating every possible one isn't reliable.
-3. A live `condor_config_val` query against the running pilot's own downloaded HTCondor install, from `info.html.erb` — ruled out by a real production `LoadError`: `__dir__` doesn't reliably resolve inside `info.html.erb`'s specific OOD rendering path (`BatchConnect::Session#render_info_view`, different from the one `form.yml.erb`/`submit.yml.erb` use), and passing the app's directory forward via a JSON file (written by `submit.yml.erb`, where `__dir__` *is* reliable) didn't conclusively resolve it in practice.
+2. A live `condor_config_val` query against the running pilot's own downloaded HTCondor install, executed directly from `info.html.erb` — ruled out by a real production `LoadError`: `__dir__` doesn't reliably resolve inside `info.html.erb`'s specific OOD rendering path (`BatchConnect::Session#render_info_view`, different from the one `form.yml.erb`/`submit.yml.erb` use), and passing the app's directory forward via a JSON file (written by `submit.yml.erb`, where `__dir__` *is* reliable) didn't conclusively resolve it in practice.
 
-A static message sidesteps all of it. `staged_root` is still relied on for reading `annex_info.json` (the `condor_version` piece) — real and confirmed working (traced in `ood/apps/dashboard`'s `BatchConnect::App#submit_opts`, demonstrated in [a community example](https://discourse.openondemand.org/t/customizing-interactive-app-cards-using-erb/2694)), but not part of OOD's documented API for this file — an OOD maintainer has described these card templates as otherwise "pretty locked down." Wrapped in `rescue StandardError` so a failure there just omits the version line rather than breaking the whole card.
+**The current approach (`lib/annex_pilot_config.rb`) avoids both problems by never touching a live pilot process at all.** Both of the real override points turn out to already be plain text sitting on disk before the pilot ever runs:
+- `annex-setup.sh` writes the post-`~/.condor/annex_config`-override value straight into a file, `10-annex-pilot-instance`, in the job's working directory during `before.sh.erb` — i.e. into `staged_root`, well before Slurm even starts the pilot.
+- `~/.condor/annex_pilot_config` (the second override point) is a pre-existing user file from the moment the session starts; `annex-job-setup.sh` only `cp`s it in verbatim later, so reading it directly gets the same content without waiting for that copy.
+
+`AnnexPilotConfig.value(staged_root, key)` resolves any config option by scanning `00-annex-pilot-base` (the tarball's shipped default), then `10-annex-pilot-instance`, then `~/.condor/annex_pilot_config`, in that order — the same order and last-definition-wins rule the pilot's own `config.d` uses. This only understands plain `KEY = VALUE` lines, not HTCondor's macro expansion, conditionals, or built-in functions (`$(...)`, `ifThenElse`, etc.); `AnnexPilotConfig.coerce` then attempts `Integer`, then `Float`, then a `true`/`false` match, falling back to the raw string for anything else. `AnnexPilotConfig.shutdown_warning` only humanizes the value when it resolves to a plain `Integer` — anything else (unset, a float, a bool, or a raw expression string) gets the generic static reminder instead.
+
+The one remaining wrinkle: `lib/annex_pilot_config.rb` still needs to reach `info.html.erb` without `require`ing it via `__dir__` (still broken there, per above). `submit.yml.erb` copies the file into `staged_root` (where `__dir__` *is* reliable), and `info.html.erb` `load`s it back by a `staged_root`-based path — `load`, not `require`, so it doesn't matter if `info.html.erb`'s rendering path re-runs this on every card view; the module has no top-level constants for exactly that reason (reassigning one on every `load` would spam "already initialized constant" warnings). `staged_root` itself is still relied on for reading `annex_info.json` (the `condor_version` piece) too — real and confirmed working (traced in `ood/apps/dashboard`'s `BatchConnect::App#submit_opts`, demonstrated in [a community example](https://discourse.openondemand.org/t/customizing-interactive-app-cards-using-erb/2694)), but not part of OOD's documented API for this file — an OOD maintainer has described these card templates as otherwise "pretty locked down." The `load` is wrapped in `rescue StandardError, ScriptError` (`LoadError` is a `ScriptError`, not a `StandardError`) so a failure there just falls back to the static warning; the `annex_info.json` read is a separate `rescue StandardError` so a failure there only omits the version line — neither failure takes down the whole card.
 
 ## Logs
 
@@ -155,6 +163,7 @@ A static message sidesteps all of it. `staged_root` is still relied on for readi
 - `~/.condor/annex_slurm_args` has no effect in this OOD setup. That file is designed for the manual `sbatch` workflow where users edit `hpc.slurm` directly. All Slurm options must be set via the OOD form.
 - Each app session submits a single-node Slurm job (one HTCondor EP per launch). Submit multiple sessions to run EPs across multiple nodes.
 - `bc_account` and `user_email` are validated against a strict character set before being passed to Slurm (to keep raw form input from corrupting the generated job options). An account or email containing unexpected characters is silently dropped from the submission rather than erroring — if charging/notifications aren't happening, check for typos or unusual characters in those fields first.
+- The pilot's base config (`00-annex-pilot-base`, shipped in the tarball) sets `MEMORY_CHUNK_SIZE = 3072` and `MODIFY_REQUEST_EXPR_REQUESTMEMORY = max({ $(MEMORY_CHUNK_SIZE), quantize(RequestMemory, {128}) })` — every job's `RequestMemory` gets rounded up to at least 3072 MB (~3 GB) regardless of what it actually asks for. If a session's total advertised memory is less than that, no job can ever match on it: the EP just sits idle, unclaimed, until `STARTD_NOCLAIM_SHUTDOWN` shuts it down without ever running anything. `HTC_ANNEX_MIN_MEMORY_GB`'s built-in floor is 1 GB, well below this — see [Default resource requests](#default-resource-requests) for the admin override.
 
 ## User Documentation
 
