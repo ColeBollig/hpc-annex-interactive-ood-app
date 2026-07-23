@@ -10,7 +10,7 @@ module AnnexDefaults
   #   since a job can't sensibly request zero of any of those).
   RESOURCES = {
     num_cores: { env: "NUM_CORES", builtin_min: 1, builtin_max: 128, builtin_default: 1, floor: 1 },
-    memory_gb: { env: "MEMORY_GB", builtin_min: 1, builtin_max: 512, builtin_default: 4, floor: 1 },
+    memory_gb: { env: "MEMORY_GB", builtin_min: 4, builtin_max: 512, builtin_default: 4, floor: 1 },
     num_gpus:  { env: "NUM_GPUS",  builtin_min: 0, builtin_max: 8,   builtin_default: 0, floor: 0 },
     num_hours: { env: "NUM_HOURS", builtin_min: 1, builtin_max: 72,  builtin_default: 1, floor: 1 },
   }.freeze

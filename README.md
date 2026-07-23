@@ -98,7 +98,7 @@ HTC_ANNEX_MIN_NUM_CORES=2
 HTC_ANNEX_MAX_NUM_CORES=64
 HTC_ANNEX_DEFAULT_NUM_CORES=8
 
-# Memory per node (GB) — built-in range 1-512, built-in default 4
+# Memory per node (GB) — built-in range 4-512, built-in default 4
 HTC_ANNEX_MIN_MEMORY_GB=8
 HTC_ANNEX_MAX_MEMORY_GB=256
 HTC_ANNEX_DEFAULT_MEMORY_GB=32
@@ -114,7 +114,7 @@ HTC_ANNEX_MAX_NUM_HOURS=48
 HTC_ANNEX_DEFAULT_NUM_HOURS=12
 ```
 
-**Set `HTC_ANNEX_MIN_MEMORY_GB` to at least `4`.** The built-in floor (1 GB) allows sessions with too little memory for any job to ever run on them (see [Known Limitations](#known-limitations)).
+**Don't set `HTC_ANNEX_MIN_MEMORY_GB` below `4`.** The built-in minimum is already 4 GB for this reason — going lower allows sessions with too little memory for any job to ever run on them (see [Known Limitations](#known-limitations)).
 
 Any unset or non-numeric value falls back to its built-in counterpart. An invalid `min`/`max` pair (min below the resource's hard floor, or max < min) reverts both to their built-in values; a `default` outside the resulting range is clamped into it instead of discarded. The resolved `min`/`max` are applied directly to the form fields' allowed range, not just used to clamp the default.
 
@@ -160,4 +160,4 @@ The session card in "My Interactive Sessions" shows two extra pieces of info onc
 - `~/.condor/annex_slurm_args` has no effect in this OOD setup. That file is designed for the manual `sbatch` workflow where users edit the generated Slurm script directly. All Slurm options must be set via the OOD form.
 - Each app session submits a single-node Slurm job (one HTCondor EP per launch). Submit multiple sessions to run EPs across multiple nodes.
 - `bc_account` and `user_email` are validated against a strict character set before being passed to Slurm. An account or email containing unexpected characters is silently dropped from the submission rather than erroring — if charging/notifications aren't happening, check for typos or unusual characters in those fields first.
-- A session needs at least ~3 GB of total memory for any job to be able to run on it — less than that and the EP just sits idle, unclaimed, until it shuts itself down without ever running anything (see [Default resource requests](#default-resource-requests) for the admin-side fix, and [KNOWLEDGE.md](KNOWLEDGE.md) for why).
+- A session needs at least ~3 GB of total memory for any job to be able to run on it — less than that and the EP just sits idle, unclaimed, until it shuts itself down without ever running anything. The built-in minimum (4 GB) already accounts for this; don't override `HTC_ANNEX_MIN_MEMORY_GB` below it (see [Default resource requests](#default-resource-requests), and [KNOWLEDGE.md](KNOWLEDGE.md) for why).
