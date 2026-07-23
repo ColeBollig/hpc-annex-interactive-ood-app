@@ -33,6 +33,53 @@ The app is not a traditional interactive app — there is no web UI served after
 
 All resource allocation (CPUs, memory, GPUs, wall time) is controlled through the OOD form (`submit.yml.erb`), not by editing the generated Slurm job script directly. See [KNOWLEDGE.md](KNOWLEDGE.md) for implementation details.
 
+## Usage
+
+### 1. On the HTCondor Access Point
+
+Submit your job(s) targeting a named annex, then create the annex:
+
+```sh
+htcondor job submit my-job.sub --annex-name <NAME>
+htcondor annex create <NAME>
+```
+
+This produces an `annex-setup.tar` tarball containing everything needed to start the annex on the HPC cluster.
+
+### 2. Copy the Tarball to the HPC System
+
+The tarball can live anywhere in your home directory. Renaming it to `<NAME>.tar` is recommended for clarity.
+
+**Option A — scp directly to the HPC login node:**
+```sh
+scp annex-setup.tar <user>@<hpc-login>:~/<NAME>.tar
+```
+
+**Option B — via local machine and OOD file upload:**
+```sh
+scp annex-setup.tar <local-machine>:~/
+# Then use the OOD Files app to upload it to your home directory
+```
+
+### 3. Launch the HTC Annex App in OOD
+
+1. Open **Interactive Apps** and select **HTC Annex**
+2. Fill out the resource form (cluster, partition, CPUs, memory, wall time, etc.)
+3. In the **Annex source tarball** field, enter the full path to the tarball uploaded in Step 2 — e.g. `~/my-annex.tar`
+4. Click **Launch**
+
+OOD will submit a Slurm job that extracts the tarball, downloads the HTCondor binaries, and starts the execute point (EP). Your queued HTCondor jobs will begin running once the EP connects to the collector.
+
+### User Customization
+
+These optional files in `~/.condor/` are read by the annex setup and pilot scripts at runtime.
+
+**`~/.condor/annex_config`** — sourced by `annex-setup.sh` before the Slurm job script is written. Use it to load modules or override the `SCRATCH` variable (which controls where the `pilot.<jobid>` working directory is created — useful for redirecting to node-local scratch).
+
+**`~/.condor/annex_slurm_args`** — has no effect when using the OOD interactive app. All Slurm resource options are controlled by the OOD form. This file is only relevant when submitting `hpc.slurm` manually via `sbatch`, where its contents are inserted just after the base `#SBATCH` lines.
+
+**`~/.condor/annex_pilot_config`** — contents are copied into the EP's `config.d/` directory, allowing per-user HTCondor configuration on the execute point.
+
 ## Admin Configuration
 
 All settings below are read from `/etc/ood/config/apps/dashboard/env` (managed by the OOD admin, not part of this repo). Interactive apps like this one are all rendered by the single Dashboard Passenger process, so this file — not a per-app one — is where their environment variables live; it's shared across every interactive app on the instance, not exclusive to HTC Annex.
@@ -114,7 +161,3 @@ The session card in "My Interactive Sessions" shows two extra pieces of info onc
 - Each app session submits a single-node Slurm job (one HTCondor EP per launch). Submit multiple sessions to run EPs across multiple nodes.
 - `bc_account` and `user_email` are validated against a strict character set before being passed to Slurm. An account or email containing unexpected characters is silently dropped from the submission rather than erroring — if charging/notifications aren't happening, check for typos or unusual characters in those fields first.
 - A session needs at least ~3 GB of total memory for any job to be able to run on it — less than that and the EP just sits idle, unclaimed, until it shuts itself down without ever running anything (see [Default resource requests](#default-resource-requests) for the admin-side fix, and [KNOWLEDGE.md](KNOWLEDGE.md) for why).
-
-## User Documentation
-
-See [USER-STEPS.md](USER-STEPS.md) for end-user instructions.

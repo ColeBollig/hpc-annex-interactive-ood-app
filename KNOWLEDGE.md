@@ -1,6 +1,6 @@
 # HTC Annex — Internal Knowledge
 
-Implementation details and mechanism-level gotchas for anyone maintaining or extending this app. None of this is needed to install or use it — see [README.md](README.md) for that, or [USER-STEPS.md](USER-STEPS.md) for end-user instructions.
+Implementation details and mechanism-level gotchas for anyone maintaining or extending this app. None of this is needed to install or use it — see [README.md](README.md) for that.
 
 ## App Files
 
@@ -19,7 +19,7 @@ Implementation details and mechanism-level gotchas for anyone maintaining or ext
 
 ## Contents of annex-setup.tar
 
-The tarball produced by `htcondor annex create` on the access point (see [USER-STEPS.md](USER-STEPS.md) Step 2) contains everything needed to start the annex on the HPC cluster:
+The tarball produced by `htcondor annex create` on the access point (see [README.md's Usage section](README.md#usage) Step 2) contains everything needed to start the annex on the HPC cluster:
 
 | File | Purpose |
 |------|---------|
@@ -39,7 +39,7 @@ The tarball produced by `htcondor annex create` on the access point (see [USER-S
 
 ## Session Card Info Mechanism
 
-`STARTD_NOCLAIM_SHUTDOWN` can be overridden twice before the pilot ever applies it — via `~/.condor/annex_config` (a shell override) and `~/.condor/annex_pilot_config` (an HTCondor `config.d` file), both real, supported customization points (see `USER-STEPS.md`). `lib/annex_pilot_config.rb`'s `AnnexPilotConfig.value(staged_root, key)` resolves the effective value by scanning, in order, `00-annex-pilot-base` (the tarball's shipped default), `10-annex-pilot-instance` (written into `staged_root` during setup, already reflecting the `annex_config` override), and `~/.condor/annex_pilot_config` directly — the same order and last-definition-wins rule the pilot's own `config.d` uses, without needing to query a running pilot.
+`STARTD_NOCLAIM_SHUTDOWN` can be overridden twice before the pilot ever applies it — via `~/.condor/annex_config` (a shell override) and `~/.condor/annex_pilot_config` (an HTCondor `config.d` file), both real, supported customization points (see [README.md's User Customization section](README.md#user-customization)). `lib/annex_pilot_config.rb`'s `AnnexPilotConfig.value(staged_root, key)` resolves the effective value by scanning, in order, `00-annex-pilot-base` (the tarball's shipped default), `10-annex-pilot-instance` (written into `staged_root` during setup, already reflecting the `annex_config` override), and `~/.condor/annex_pilot_config` directly — the same order and last-definition-wins rule the pilot's own `config.d` uses, without needing to query a running pilot.
 
 This only understands plain `KEY = VALUE` lines, not HTCondor's macro expansion, conditionals, or built-in functions (`$(...)`, `ifThenElse`, etc.). `AnnexPilotConfig.coerce` attempts `Integer`, then `Float`, then a `true`/`false` match, falling back to the raw string for anything else; `AnnexPilotConfig.shutdown_warning` only humanizes the value into a duration when it resolves to a plain `Integer` — anything else (unset, a float, a bool, or a raw expression string) gets the generic static reminder instead.
 
