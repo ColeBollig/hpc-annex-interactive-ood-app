@@ -101,8 +101,9 @@ module AnnexPilotConfig
     resolved = coerce(value(staged_root, "STARTD_NOCLAIM_SHUTDOWN"))
     return static_shutdown_warning unless resolved.is_a?(Integer)
 
-    "This job's execute point may shut down after #{humanize_seconds(resolved)} without any job pressure."
-  rescue StandardError
+    "This pilot execute point may shut down after #{humanize_seconds(resolved)} without any job pressure."
+  rescue StandardError => e
+    warn "[htc-annex-app] AnnexPilotConfig.shutdown_warning: #{e.class}: #{e.message}"
     static_shutdown_warning
   end
 end

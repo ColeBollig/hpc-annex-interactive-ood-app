@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Stop on the first failing command instead of powering through with a
+# missing/partial extraction -- without this, a failed `tar -xvf` still let
+# execution reach `bash annex-setup.sh`, producing a confusing failure
+# further downstream instead of tar's own clear error at the actual break
+# point.
+set -e
+
 SOURCE="<%= context.annex_tarball_path %>"
 
 if [ ! -f "$SOURCE" ]; then

@@ -35,8 +35,12 @@ batch_connect:
       File.write(File.join(staged_root, "annex_info.json"), JSON.generate(condor_version: record["VERSION"]))
       FileUtils.cp(File.join(__dir__, "lib", "annex_pilot_config.rb"), File.join(staged_root, "annex_pilot_config.rb"))
     end
-  rescue StandardError
-    # Session-card info is a nice-to-have -- never fail submission over it.
+  rescue StandardError => e
+    # Session-card info is a nice-to-have -- never fail submission over it,
+    # but still log it via `warn` (STDERR) so a failure here doesn't vanish
+    # without a trace (see git history: a silently-swallowed exception here
+    # is exactly what made a past production bug take days to track down).
+    warn "[htc-annex-app] submit.yml.erb: failed to write session-card info: #{e.class}: #{e.message}"
   end
 %>
 

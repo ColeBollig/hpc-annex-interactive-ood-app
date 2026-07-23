@@ -11,3 +11,6 @@ echo "Executing HTC annex slurm script"
 export SLURM_EXPORT_ENV=ALL
 
 bash hpc.slurm > annex-job.out 2> annex-job.err
+status=$?
+echo "hpc.slurm exited with status ${status}"
+exit "${status}"

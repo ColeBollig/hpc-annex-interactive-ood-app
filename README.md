@@ -152,8 +152,9 @@ The session card in "My Interactive Sessions" shows two extra pieces of info onc
 
 ## Logs
 
-- `htc-annex-app.debug` — the OOD job's own stdout/stderr; mostly setup progress messages.
+- `htc-annex-app.debug` — the OOD job's own stdout/stderr; mostly setup progress messages, and now includes `hpc.slurm`'s exit status.
 - `annex-job.out` / `annex-job.err` — stdout/stderr of the HTCondor pilot itself. This is where to look for EP startup failures.
+- If session-card info (HTCondor version, idle-shutdown warning) is missing or wrong, check the OOD web server's own error log (e.g. Apache/Passenger log) for `[htc-annex-app]` lines — best-effort failures there are logged via `warn` rather than swallowed silently.
 
 ## Known Limitations
 

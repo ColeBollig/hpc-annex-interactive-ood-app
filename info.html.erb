@@ -15,7 +15,8 @@
   info = begin
     path = File.join(staged_root, "annex_info.json")
     File.exist?(path) ? JSON.parse(File.read(path)) : {}
-  rescue StandardError
+  rescue StandardError => e
+    warn "[htc-annex-app] info.html.erb: failed to read annex_info.json: #{e.class}: #{e.message}"
     {}
   end
 
@@ -32,16 +33,20 @@
   # Rescues StandardError AND ScriptError (LoadError's actual superclass --
   # NOT a StandardError, so `rescue StandardError` alone would silently
   # fail to catch a bad `load`) so a failure here just falls back to the
-  # static warning rather than breaking the whole card.
+  # static warning rather than breaking the whole card. Logged via `warn`
+  # (STDERR) rather than swallowed outright -- a silent rescue here is
+  # exactly what turned the original `__dir__` LoadError into a multi-day
+  # investigation instead of a one-line log read (see git history).
   shutdown_warning = begin
     load(File.join(staged_root, "annex_pilot_config.rb"))
     AnnexPilotConfig.shutdown_warning(staged_root)
-  rescue StandardError, ScriptError
+  rescue StandardError, ScriptError => e
+    warn "[htc-annex-app] info.html.erb: failed to resolve shutdown warning: #{e.class}: #{e.message}"
     "Pilot may exit early after a set amount of time without any job pressure. See configured <code>STARTD_NOCLAIM_SHUTDOWN</code> value."
   end
 %>
 <% if info["condor_version"] %>
-  <p>Detected HTCondor version: <strong><%= info["condor_version"] %></strong></p>
+  <p><strong>Detected HTCondor version:</strong> <%= info["condor_version"] %></p>
 <% end %>
 <div class="alert alert-warning">
   <%= shutdown_warning %>
